@@ -5,7 +5,6 @@ from PyQt5.QtCore import *
 # Импортируем всё из библиотек
 
 import random
-import time
 
 
 size = 20
