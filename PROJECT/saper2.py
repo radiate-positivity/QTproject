@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 # Импортируем всё из библиотек
 
 import random
+import time
 
 
 size = 20
@@ -25,10 +26,6 @@ NUM_COLORS = {1: QColor('#1959d1'), # Цвета для циферков
 
 
 class Pos(QWidget): # Класс для позиций в поле, каждая из котрых один маленький виджет
-
-    expandable = pyqtSignal(int, int)
-    clickedd = pyqtSignal()
-    ohno = pyqtSignal()    
 
     def __init__(self, x, y, *args, **kwargs):
         super(Pos, self).__init__(*args, **kwargs)
@@ -90,7 +87,7 @@ class Pos(QWidget): # Класс для позиций в поле, каждая
             self.is_flag = True
             ex.change_mines()
         self.update()
-        self.clickedd.emit()
+        ex.start_timer()
 
 
     def click(self):  # При клике
@@ -98,10 +95,10 @@ class Pos(QWidget): # Класс для позиций в поле, каждая
             if ex.button_is_m: # Если открываем клетки
                 self.openn()
                 if self.mines_around == 0: 
-                    self.expandable.emit(self.x, self.y)
+                    ex.open_empty(self.x, self.y)
             else: # если отмечаем мины
                 self.flag()
-        self.clickedd.emit()
+        ex.start_timer()
 
 
     def openn(self): # Переключаем что клеточка открыта
@@ -110,29 +107,118 @@ class Pos(QWidget): # Класс для позиций в поле, каждая
             self.update()
         
 
-    def mouseReleaseEvent(self, b): # Ловим нажатия мышки
-        if ex.button_is_m:
-            if  not self.is_flag and not self.have_click:
-                self.click()
-        else:
-            if not self.have_click:
-                self.click()
+    def mouseReleaseEvent(self, e): # Ловим нажатия мышки
+        if e.button() == Qt.RightButton and not self.have_click:
+            self.flag()
+
+        elif e.button() == Qt.LeftButton:
+            if ex.button_is_m:
+                if  not self.is_flag and not self.have_click:
+                    self.click()
+            else:
+                if not self.have_click:
+                    self.click()
+         
+        
+
+class Window(QMainWindow):   
+    def __init__(self, *args, **kwargs):
+        super(QMainWindow, self).__init__(*args, **kwargs)
+        
+        w = QWidget()
+        vb = QVBoxLayout()
+        w.setLayout(vb)
+        hb4 = QHBoxLayout()
+        vb.addLayout(hb4)
+        hb2 = QHBoxLayout()
+        vb.addLayout(hb2)
+        hb3 = QHBoxLayout()
+        vb.addLayout(hb3)
+        hb1 = QHBoxLayout()
+        vb.addLayout(hb1)
+        
+        self.setWindowTitle('Settings')
+        self.setFixedSize(QSize(340, 190))
+        
+        self.button = QPushButton()
+        self.button.setGeometry(QRect(120, 140, 111, 31))
+        self.button.setFixedSize(QSize(110, 30))
+        self.button.setText('Сохранить')
+        self.button.clicked.connect(self.save)
+
+        self.line_1 = QLabel()
+        self.line_1.setGeometry(QRect(20, 10, 140, 40))
+        font = QFont()
+        font.setPointSize(10)
+        self.line_1.setFont(font)
+        self.line_1.setText('Размеры поля')
+        
+        self.line_2 = QLabel()
+        self.line_2.setGeometry(QRect(180, 10, 140, 40))
+        font = QFont()
+        font.setPointSize(10)
+        self.line_2.setFont(font)
+        self.line_2.setText('Количество мин')
+
+        self.spinBox = QSpinBox()
+        self.spinBox.setGeometry(QRect(190, 70, 121, 41))
+        font = QFont()
+        font.setPointSize(14)
+        self.spinBox.setFont(font)
+        self.spinBox.setCursor(QCursor(Qt.IBeamCursor))
+        self.spinBox.setMaximum(30)
+        self.spinBox.setMinimum(10)
+
+        self.spinBox_2 = QSpinBox()
+        self.spinBox_2.setGeometry(QRect(30, 70, 121, 41))
+        font = QFont()
+        font.setPointSize(14)
+        self.spinBox_2.setFont(font)
+        self.spinBox_2.setCursor(QCursor(Qt.IBeamCursor))
+        self.spinBox_2.setMaximum(200)
+        self.spinBox_2.setMinimum(20)
+
+        self.line_3 = QLabel()
+        self.line_3.setText('''Вводите так, что бы количество мин
+не было меньше 10 % от количества клеток на поле,
+но и не превышало количество клеток''')
+        
+        hb1.addWidget(self.button)
+        hb2.addWidget(self.line_1)
+        hb2.addWidget(self.line_2)
+        hb3.addWidget(self.spinBox)
+        hb3.addWidget(self.spinBox_2)
+        hb4.addWidget(self.line_3)
+        
+        self.setCentralWidget(w)
 
 
+    def save(self):
+        global size
+        global mines
+        global ex
+        size = int(self.spinBox.text())
+        mines = int(self.spinBox_2.text())
+        if size * size > mines and size * size - mines < size * size * 0.9:
+            ex.close()
+            ex = MainWindow()
+            ex.show()
+
+        
+
+    
 class MainWindow(QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         # Строим окошко
+        self.setWindowTitle('Sapper')
         self.size = size
         self.mines = mines
         self.setFixedSize(QSize())
         
         w = QWidget()
         hb = QHBoxLayout()
-        l = QLabel()
-        hb.addWidget(l)
-        
         vb = QVBoxLayout()
         vb.addLayout(hb)
 
@@ -144,11 +230,10 @@ class MainWindow(QMainWindow):
 
         self.num_of_min = QLCDNumber()
         self.num_of_min.setGeometry(QRect(0, 0, 400, 40))
-        self.num_of_min.setDigitCount(4)
+        self.num_of_min.setDigitCount(5)
         self.num_of_min.setProperty("intValue", self.mines)
         
         self.button_new_game = QPushButton()
-        
         self.button_new_game.setFixedSize(QSize(40, 40))
         self.button_new_game.setIconSize(QSize(40, 40))
         self.button_new_game.setIcon(QIcon('smile.png'))
@@ -161,13 +246,32 @@ class MainWindow(QMainWindow):
         self.button_is_m = True
         self.button_f_or_m.clicked.connect(self.change_icon)
 
-        
-        hb.addWidget(self.button_new_game)
-        hb.addWidget(self.num_of_min)
-        hb.addWidget(self.button_f_or_m)
-        hb.setGeometry(QRect(0, 0, 200, 40))
+        self.button_set = QPushButton()
+        self.button_set.setFixedSize(QSize(40, 40))
+        self.button_set.setIconSize(QSize(30, 30))
+        self.button_set.setIcon(QIcon('set.png'))
+        self.button_set.clicked.connect(self.open_set)
+
+        self.times = QLCDNumber()
+        self.times.setGeometry(QRect(0, 0, 500, 40))
+        self.times.setDigitCount(5)
+        self.times.setProperty("intValue", 0)
+        self.start = False
 
         
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_timer)
+        self.timer.start(1000)
+        self.times.display("0:00")
+
+
+        hb.addWidget(self.times)
+        hb.addWidget(self.button_set)
+        hb.addWidget(self.button_new_game)
+        hb.addWidget(self.button_f_or_m)
+        hb.addWidget(self.num_of_min)
+        hb.setGeometry(QRect(0, 0, 100, 40))
+
         self.init_map()
         self.reset_map()
         self.show()
@@ -179,7 +283,6 @@ class MainWindow(QMainWindow):
             for y in range(self.size):
                 w = Pos(x, y)
                 self.grid.addWidget(w, y, x)
-                w.expandable.connect(self.open_empty)
 
     def reset_map(self):
         # Тут обновляем
@@ -187,7 +290,12 @@ class MainWindow(QMainWindow):
             for y in range(self.size):
                 w = self.grid.itemAtPosition(y, x).widget()
                 w.reset()
-                
+
+        self.start = False
+        self.times.display('0:00')
+        self.mines = mines # Обновляем окошко с минами
+        self.num_of_min.display(self.mines)
+        
         # А тут впёхиваем мины 
         positions = []
         while len(positions) < self.mines:
@@ -219,6 +327,7 @@ class MainWindow(QMainWindow):
         return positions
 
     def open_map(self): # Открываем карту в конце
+        self.start = False
         for x in range(self.size):
             for y in range(self.size):
                 w = self.grid.itemAtPosition(y, x).widget()
@@ -249,9 +358,27 @@ class MainWindow(QMainWindow):
 
     def new_game(self): # Новая игра
         self.reset_map()
-        
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = MainWindow()
-    sys.exit(app.exec_())
+    def start_timer(self):
+        if not self.start:
+            self.start = True
+            self.start_time = int(time.time())
+    
+    def update_timer(self):
+        if self.start:
+            t = int(time.time()) - self.start_time
+            m = t//60
+            s = t%60
+            self.times.display('{}:{}'.format(m, s))
+
+
+    def open_set(self):
+        sets.show()
+                           
+        
+ 
+app = QApplication(sys.argv)
+ex = MainWindow()
+sets = Window()
+ex.show()
+sys.exit(app.exec_())
